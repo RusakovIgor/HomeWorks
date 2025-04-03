@@ -1,100 +1,92 @@
-import asyncio
-from datetime import datetime
+import psycopg2
 
-class TaskManager:
-    _instance = None
+# Конфигурация подключения к базе данных
+DB_NAME = "students_db"
+DB_USER = "postgres"
+DB_PASSWORD = "password"
+DB_HOST = "localhost"
+DB_PORT = "5432"
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(TaskManager, cls).__new__(cls)
-            cls._instance.tasks = []
-        return cls._instance
+def create_table():
+    with psycopg2.connect(dbname=DB_NAME, user=DB_USER, password=DB_PASSWORD, host=DB_HOST, port=DB_PORT) as conn:
+        with conn.cursor() as cur:
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS students (
+                    id SERIAL PRIMARY KEY,
+                    first_name VARCHAR(50),
+                    last_name VARCHAR(50),
+                    course_number INT,
+                    age INT
+                )
+            ''')
+            conn.commit()
 
-    def add_task(self, task):
-        self.tasks.append(task)
+def add_student(first_name, last_name, course_number, age):
+    with psycopg2.connect(dbname=DB_NAME, user=DB_USER, password=DB_PASSWORD, host=DB_HOST, port=DB_PORT) as conn:
+        with conn.cursor() as cur:
+            cur.execute('''
+                INSERT INTO students (first_name, last_name, course_number, age)
+                VALUES (%s, %s, %s, %s)
+            ''', (first_name, last_name, course_number, age))
+            conn.commit()
 
-    def remove_task(self, task_id):
-        self.tasks = [task for task in self.tasks if task.id != task_id]
+def update_student(student_id, first_name, last_name, course_number, age):
+    with psycopg2.connect(dbname=DB_NAME, user=DB_USER, password=DB_PASSWORD, host=DB_HOST, port=DB_PORT) as conn:
+        with conn.cursor() as cur:
+            cur.execute('''
+                UPDATE students
+                SET first_name=%s, last_name=%s, course_number=%s, age=%s
+                WHERE id=%s
+            ''', (first_name, last_name, course_number, age, student_id))
+            conn.commit()
 
-    def sort_tasks(self):
-        n = len(self.tasks)
-        for i in range(n):
-            for j in range(0, n-i-1):
-                if self.tasks[j].created_at > self.tasks[j+1].created_at:
-                    self.tasks[j], self.tasks[j+1] = self.tasks[j+1], self.tasks[j]
+def delete_student(student_id):
+    with psycopg2.connect(dbname=DB_NAME, user=DB_USER, password=DB_PASSWORD, host=DB_HOST, port=DB_PORT) as conn:
+        with conn.cursor() as cur:
+            cur.execute('DELETE FROM students WHERE id=%s', (student_id,))
+            conn.commit()
 
-    def find_task(self, task_id):
-        for task in self.tasks:
-            if task.id == task_id:
-                return task
-        return None
+def list_students():
+    with psycopg2.connect(dbname=DB_NAME, user=DB_USER, password=DB_PASSWORD, host=DB_HOST, port=DB_PORT) as conn:
+        with conn.cursor() as cur:
+            cur.execute('SELECT * FROM students')
+            students = cur.fetchall()
+            for student in students:
+                print(student)
 
-class Task:
-    def __init__(self, task_id, description):
-        self.id = task_id
-        self.description = description
-        self.created_at = datetime.now()
-
-    async def execute(self):
-        print(f"Запуск задачи {self.id}: {self.description}")
-        await asyncio.sleep(3) 
-        print(f"Задача {self.id} завершена.")
-
-async def run_tasks():
-    manager = TaskManager()
-    await asyncio.gather(*(task.execute() for task in manager.tasks))
-
-async def main():
-    manager = TaskManager()
-    task_id_counter = 1
-
+def main():
+    create_table()
     while True:
-        print("\nВыберите действие:")
-        print("1. Добавить задачу")
-        print("2. Удалить задачу по ID")
-        print("3. Запустить все задачи")
-        print("4. Просмотреть список задач")
-        print("5. Найти задачу по ID")
-        print("6. Выход")
-
-        choice = input("Введите номер действия: ")
-
-        if choice == '1':
-            description = input("Введите описание задачи: ")
-            task = Task(task_id_counter, description)
-            manager.add_task(task)
-            task_id_counter += 1
-            print(f"Задача добавлена с ID {task.id}.")
-
-        elif choice == '2':
-            task_id = int(input("Введите ID задачи для удаления: "))
-            manager.remove_task(task_id)
-            print(f"Задача с ID {task_id} удалена.")
-
-        elif choice == '3':
-            print("Запуск всех задач...")
-            await run_tasks()
-
-        elif choice == '4':
-            manager.sort_tasks()
-            print("Список задач:")
-            for task in manager.tasks:
-                print(f"ID: {task.id}, Описание: {task.description}, Время создания: {task.created_at}")
-
-        elif choice == '5':
-            task_id = int(input("Введите ID задачи для поиска: "))
-            task = manager.find_task(task_id)
-            if task:
-                print(f"Задача найдена: ID: {task.id}, Описание: {task.description}")
-            else:
-                print("Задача не найдена.")
-
-        elif choice == '6':
-            print("Выход из программы.")
+        print("\nМеню:")
+        print("1. Добавить студента")
+        print("2. Обновить данные студента")
+        print("3. Удалить студента")
+        print("4. Показать список студентов")
+        print("5. Выход")
+        choice = input("Выберите действие: ")
+        
+        if choice == "1":
+            first_name = input("Имя: ")
+            last_name = input("Фамилия: ")
+            course_number = int(input("Номер курса: "))
+            age = int(input("Возраст: "))
+            add_student(first_name, last_name, course_number, age)
+        elif choice == "2":
+            student_id = int(input("ID студента: "))
+            first_name = input("Имя: ")
+            last_name = input("Фамилия: ")
+            course_number = int(input("Номер курса: "))
+            age = int(input("Возраст: "))
+            update_student(student_id, first_name, last_name, course_number, age)
+        elif choice == "3":
+            student_id = int(input("ID студента: "))
+            delete_student(student_id)
+        elif choice == "4":
+            list_students()
+        elif choice == "5":
             break
-
         else:
-            print("Неверный ввод. Пожалуйста, попробуйте снова.")
+            print("Неверный выбор, попробуйте снова.")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
